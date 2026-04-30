@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudShield — Login</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="login-body">
+<div class="login-container glass">
+  <div class="login-logo">
+    <span class="shield-icon">🛡️</span>
+    <h1>FraudShield</h1>
+    <p>Credit Card Fraud Detection System</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST" action="/login" class="login-form">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Enter your username" required autocomplete="off"/>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter your password" required autocomplete="off"/>
+    </div>
+    <button type="submit" class="btn btn-primary btn-full">Sign In →</button>
+  </form>
+
+  <hr class="login-divider"/>
+  <p class="login-hint">Don't have an account? <a href="/signup" style="color:var(--accent);text-decoration:none;font-weight:600">Sign up</a></p>
+</div>
+
+<script>
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# Model artifacts (large binary files)
+credit-card-fraud/model.pkl
+credit-card-fraud/model_meta.pkl
+
+# Runtime data files (generated at runtime)
+credit-card-fraud/suspicious_log.json
+credit-card-fraud/prediction_history.json
+credit-card-fraud/users.json
+
+# Dataset (large file — add your own)
+credit_card_fraud_10k.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

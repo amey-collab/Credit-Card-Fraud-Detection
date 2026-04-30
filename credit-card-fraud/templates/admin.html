@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudShield — Admin Panel</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<nav class="sidebar glass">
+  <div class="sidebar-brand">
+    🛡️ <span class="brand-name">FraudShield</span>
+    <span class="brand-dot"></span>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="/"><span>📊</span><span>Dashboard</span></a></li>
+    <li><a href="/predict_page"><span>🔍</span><span>Predict</span></a></li>
+    <li><a href="/alerts"><span>🚨</span><span>Alerts</span></a></li>
+    <li class="active"><a href="/admin"><span>⚙️</span><span>Admin Panel</span></a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ current_user[0]|upper if current_user else 'A' }}</div>
+      <span class="user-name">{{ current_user }}</span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="toggleTheme()">🌓 <span class="btn-text">Theme</span></button>
+    <a href="/logout" class="btn btn-danger btn-sm">⏻ <span class="btn-text">Logout</span></a>
+  </div>
+</nav>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2>⚙️ Admin Panel</h2>
+      <p>Manage users, monitor activity, oversee the system</p>
+    </div>
+  </header>
+
+  <!-- Summary KPIs -->
+  <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1.5rem">
+    <div class="card glass kpi-card">
+      <div class="kpi-icon">👥</div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Users</span>
+        <span class="kpi-value">{{ total_users }}</span>
+      </div>
+    </div>
+    <div class="card glass kpi-card">
+      <div class="kpi-icon">🔍</div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Predictions</span>
+        <span class="kpi-value">{{ total_predictions }}</span>
+      </div>
+    </div>
+    <div class="card glass kpi-card">
+      <div class="kpi-icon">🚨</div>
+      <div class="kpi-info">
+        <span class="kpi-label">High-Risk Alerts</span>
+        <span class="kpi-value fraud-val">{{ total_alerts }}</span>
+      </div>
+    </div>
+    <div class="card glass kpi-card">
+      <div class="kpi-icon">🛡️</div>
+      <div class="kpi-info">
+        <span class="kpi-label">Your Role</span>
+        <span class="kpi-value" style="font-size:1.1rem;color:var(--accent)">Admin</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Management Table -->
+  <div class="card glass" style="margin-bottom:1.5rem">
+    <div class="table-header">
+      <h3 class="section-title" style="margin:0">👥 Registered Users</h3>
+      <input type="text" class="search-input" placeholder="🔍 Search users..." oninput="searchUsers(this.value)"/>
+    </div>
+    <div class="table-wrapper">
+      <table id="usersTable">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Joined</th>
+            <th>Predictions</th>
+            <th>Fraud Found</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersBody">
+          {% for u in users %}
+          <tr data-username="{{ u.username }}">
+            <td>
+              <div style="display:flex;align-items:center;gap:0.6rem">
+                <div class="user-avatar" style="width:28px;height:28px;font-size:0.75rem;flex-shrink:0">
+                  {{ u.username[0]|upper }}
+                </div>
+                <strong>{{ u.username }}</strong>
+                {% if u.username == current_user %}
+                  <span class="badge badge-info" style="font-size:0.65rem">You</span>
+                {% endif %}
+              </div>
+            </td>
+            <td style="color:var(--text-muted)">{{ u.email }}</td>
+            <td>
+              <span class="badge {{ 'badge-danger' if u.role == 'admin' else 'badge-info' }}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td style="color:var(--text-muted)">{{ u.created_at }}</td>
+            <td>{{ u.predictions }}</td>
+            <td style="color:var(--accent);font-weight:700">{{ u.fraud_found }}</td>
+            <td>
+              {% if u.username != current_user %}
+              <div style="display:flex;gap:0.4rem">
+                {% if u.role == 'user' %}
+                <button class="btn btn-sm btn-outline" style="font-size:0.72rem"
+                  onclick="changeRole('{{ u.username }}', 'admin')">⬆ Make Admin</button>
+                {% else %}
+                <button class="btn btn-sm btn-outline" style="font-size:0.72rem"
+                  onclick="changeRole('{{ u.username }}', 'user')">⬇ Make User</button>
+                {% endif %}
+                <button class="btn btn-sm btn-danger" style="font-size:0.72rem"
+                  onclick="deleteUser('{{ u.username }}')">🗑 Delete</button>
+              </div>
+              {% else %}
+              <span style="font-size:0.75rem;color:var(--text-muted)">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- System Info -->
+  <div class="card glass">
+    <h3 class="section-title">🖥️ System Info</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;font-size:0.88rem">
+      <div class="info-row"><span style="color:var(--text-muted)">Model File</span><span id="sysModel">—</span></div>
+      <div class="info-row"><span style="color:var(--text-muted)">Best Algorithm</span><span id="sysBestModel">—</span></div>
+      <div class="info-row"><span style="color:var(--text-muted)">Users File</span><span style="color:var(--success)">users.json ✓</span></div>
+      <div class="info-row"><span style="color:var(--text-muted)">History Log</span><span style="color:var(--success)">prediction_history.json ✓</span></div>
+      <div class="info-row"><span style="color:var(--text-muted)">Alerts Log</span><span style="color:var(--success)">suspicious_log.json ✓</span></div>
+      <div class="info-row"><span style="color:var(--text-muted)">Server Time</span><span id="sysTime">—</span></div>
+    </div>
+  </div>
+</main>
+
+<div id="toastContainer"></div>
+
+<style>
+.info-row {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+}
+.info-row span:last-child { font-weight: 600; }
+</style>
+
+<script>
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+function searchUsers(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#usersBody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+async function changeRole(username, role) {
+  const label = role === 'admin' ? 'promote to Admin' : 'demote to User';
+  if (!confirm(`Are you sure you want to ${label} "${username}"?`)) return;
+  const res  = await fetch('/api/admin/promote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, role }),
+  });
+  const data = await res.json();
+  if (data.error) { showToast(data.error, 'fraud'); return; }
+  showToast(`${username} is now ${role}`, 'success');
+  setTimeout(() => location.reload(), 800);
+}
+
+async function deleteUser(username) {
+  if (!confirm(`Permanently delete user "${username}"? This cannot be undone.`)) return;
+  const res  = await fetch('/api/admin/delete_user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  const data = await res.json();
+  if (data.error) { showToast(data.error, 'fraud'); return; }
+  showToast(`User "${username}" deleted`, 'success');
+  const row = document.querySelector(`tr[data-username="${username}"]`);
+  if (row) row.remove();
+}
+
+// Load system info
+fetch('/api/model_results').then(r => r.json()).then(d => {
+  document.getElementById('sysBestModel').textContent = d.best_model || 'Not trained';
+  document.getElementById('sysModel').textContent = d.error ? '⚠ Not found' : 'model.pkl ✓';
+  if (!d.error) {
+    document.getElementById('sysModel').style.color = 'var(--success)';
+    document.getElementById('sysBestModel').style.color = 'var(--success)';
+  }
+}).catch(() => {});
+
+document.getElementById('sysTime').textContent = new Date().toLocaleString();
+</script>
+</body>
+</html>

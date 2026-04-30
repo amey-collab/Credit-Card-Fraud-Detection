@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudShield — Sign Up</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="login-body">
+<div class="login-container glass" style="max-width:460px">
+  <div class="login-logo">
+    <span class="shield-icon">🛡️</span>
+    <h1>FraudShield</h1>
+    <p>Create your account</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST" action="/signup" class="login-form" id="signupForm" novalidate>
+
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" name="username" id="username"
+             placeholder="e.g. john_doe"
+             minlength="3" maxlength="32" required
+             autocomplete="username"
+             oninput="validateUsername(this)"/>
+      <span class="field-hint" id="usernameHint"></span>
+    </div>
+
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" name="email" id="email"
+             placeholder="you@example.com" required
+             autocomplete="email"/>
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <div class="input-wrap">
+        <input type="password" name="password" id="password"
+               placeholder="Min. 8 characters" minlength="8" required
+               autocomplete="new-password"
+               oninput="updateStrength(this.value)"/>
+        <button type="button" class="toggle-pw" onclick="togglePw('password', this)" tabindex="-1">👁</button>
+      </div>
+      <!-- Strength bar -->
+      <div class="strength-bar-wrap">
+        <div class="strength-bar" id="strengthBar"></div>
+      </div>
+      <span class="field-hint" id="strengthLabel"></span>
+    </div>
+
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <div class="input-wrap">
+        <input type="password" name="confirm_password" id="confirm_password"
+               placeholder="Repeat password" required
+               autocomplete="new-password"
+               oninput="validateConfirm(this)"/>
+        <button type="button" class="toggle-pw" onclick="togglePw('confirm_password', this)" tabindex="-1">👁</button>
+      </div>
+      <span class="field-hint" id="confirmHint"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-full" id="submitBtn">Create Account →</button>
+  </form>
+
+  <hr class="login-divider"/>
+  <p class="login-hint">Already have an account? <a href="/login" style="color:var(--accent);text-decoration:none;font-weight:600">Sign in</a></p>
+</div>
+
+<style>
+.input-wrap { position: relative; }
+.input-wrap input { padding-right: 2.5rem; }
+.toggle-pw {
+  position: absolute; right: 0.6rem; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  font-size: 1rem; opacity: 0.5; transition: opacity 0.2s;
+}
+.toggle-pw:hover { opacity: 1; }
+
+.field-hint { display: block; font-size: 0.75rem; margin-top: 0.3rem; min-height: 1rem; }
+.hint-ok    { color: var(--success); }
+.hint-err   { color: var(--accent); }
+.hint-info  { color: var(--text-muted); }
+
+.strength-bar-wrap {
+  height: 4px; background: var(--bg3);
+  border-radius: 4px; margin-top: 0.4rem; overflow: hidden;
+}
+.strength-bar {
+  height: 100%; width: 0%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+</style>
+
+<script>
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
+
+function validateUsername(el) {
+  const hint = document.getElementById('usernameHint');
+  const v = el.value;
+  if (v.length < 3) {
+    hint.textContent = 'At least 3 characters required';
+    hint.className = 'field-hint hint-err';
+  } else if (!/^[a-zA-Z0-9_-]+$/.test(v)) {
+    hint.textContent = 'Only letters, numbers, _ and - allowed';
+    hint.className = 'field-hint hint-err';
+  } else {
+    hint.textContent = '✓ Looks good';
+    hint.className = 'field-hint hint-ok';
+  }
+}
+
+function updateStrength(pw) {
+  const bar   = document.getElementById('strengthBar');
+  const label = document.getElementById('strengthLabel');
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  const levels = [
+    { pct: '20%', color: '#e94560', text: 'Very weak' },
+    { pct: '40%', color: '#e94560', text: 'Weak' },
+    { pct: '60%', color: '#f5a623', text: 'Fair' },
+    { pct: '80%', color: '#f5a623', text: 'Good' },
+    { pct: '100%', color: '#00d4aa', text: 'Strong' },
+  ];
+  const lvl = levels[Math.max(0, score - 1)] || levels[0];
+  bar.style.width = pw.length ? lvl.pct : '0%';
+  bar.style.background = lvl.color;
+  label.textContent = pw.length ? lvl.text : '';
+  label.className = 'field-hint hint-info';
+
+  // Re-validate confirm if already typed
+  const conf = document.getElementById('confirm_password');
+  if (conf.value) validateConfirm(conf);
+}
+
+function validateConfirm(el) {
+  const hint = document.getElementById('confirmHint');
+  const pw   = document.getElementById('password').value;
+  if (el.value === pw) {
+    hint.textContent = '✓ Passwords match';
+    hint.className = 'field-hint hint-ok';
+  } else {
+    hint.textContent = 'Passwords do not match';
+    hint.className = 'field-hint hint-err';
+  }
+}
+
+document.getElementById('signupForm').addEventListener('submit', function(e) {
+  const pw   = document.getElementById('password').value;
+  const conf = document.getElementById('confirm_password').value;
+  const user = document.getElementById('username').value;
+  if (pw !== conf) { e.preventDefault(); return; }
+  if (user.length < 3) { e.preventDefault(); return; }
+  document.getElementById('submitBtn').textContent = 'Creating account...';
+  document.getElementById('submitBtn').disabled = true;
+});
+</script>
+</body>
+</html>

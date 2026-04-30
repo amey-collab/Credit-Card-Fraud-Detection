@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudShield — Predict</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<nav class="sidebar glass">
+  <div class="sidebar-brand">
+    🛡️ <span class="brand-name">FraudShield</span>
+    <span class="brand-dot"></span>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="/"><span>📊</span><span>Dashboard</span></a></li>
+    <li class="active"><a href="/predict_page"><span>🔍</span><span>Predict</span></a></li>
+    <li><a href="/alerts"><span>🚨</span><span>Alerts</span></a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ current_user[0]|upper if current_user else 'U' }}</div>
+      <span class="user-name">{{ current_user }}</span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="toggleTheme()">🌓 <span class="btn-text">Theme</span></button>
+    <a href="/logout" class="btn btn-danger btn-sm">⏻ <span class="btn-text">Logout</span></a>
+  </div>
+</nav>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2>Transaction Fraud Predictor</h2>
+      <p>Analyze individual transactions or upload a batch CSV</p>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-sm btn-outline" onclick="fillRandom()">🎲 Random Transaction</button>
+      <button class="btn btn-sm btn-outline" onclick="clearForm()">🗑 Clear</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem">
+    <button class="btn btn-primary btn-sm" id="tabSingle" onclick="switchTab('single')">🔍 Single Predict</button>
+    <button class="btn btn-outline btn-sm" id="tabBatch" onclick="switchTab('batch')">📦 Batch Predict</button>
+  </div>
+
+  <!-- Single Predict -->
+  <div id="panelSingle">
+    <div class="predict-layout">
+      <!-- Form -->
+      <div class="card glass predict-form-card">
+        <h3>Transaction Details</h3>
+        <form id="predictForm" onsubmit="submitPrediction(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Amount ($)</label>
+              <input type="number" id="amount" name="amount" step="0.01" min="0" placeholder="e.g. 250.00" required/>
+            </div>
+            <div class="form-group">
+              <label>Transaction Hour (0–23)</label>
+              <input type="number" id="transaction_hour" name="transaction_hour" min="0" max="23" placeholder="e.g. 14" required/>
+            </div>
+            <div class="form-group">
+              <label>Merchant Category</label>
+              <select id="merchant_category" name="merchant_category">
+                <option>Electronics</option>
+                <option>Travel</option>
+                <option>Grocery</option>
+                <option>Restaurant</option>
+                <option>Online</option>
+                <option>ATM</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Device Trust Score (0–100)</label>
+              <input type="number" id="device_trust_score" name="device_trust_score" min="0" max="100" placeholder="e.g. 75" required/>
+            </div>
+            <div class="form-group">
+              <label>Velocity Last 24h</label>
+              <input type="number" id="velocity_last_24h" name="velocity_last_24h" min="0" placeholder="e.g. 3" required/>
+            </div>
+            <div class="form-group">
+              <label>Cardholder Age</label>
+              <input type="number" id="cardholder_age" name="cardholder_age" min="18" max="100" placeholder="e.g. 35" required/>
+            </div>
+            <div class="form-group">
+              <label>Foreign Transaction</label>
+              <select id="foreign_transaction" name="foreign_transaction">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Location Mismatch</label>
+              <select id="location_mismatch" name="location_mismatch">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="predictBtn">🔍 Analyze Transaction</button>
+        </form>
+      </div>
+
+      <!-- Result -->
+      <div id="resultCard" class="card glass predict-result-card" style="display:none">
+        <div id="resultBadge" class="result-badge"></div>
+        <div class="result-prob">
+          <span>Fraud Probability</span>
+          <div class="prob-bar-wrap"><div class="prob-bar" id="probBar" style="width:0%"></div></div>
+          <span id="probPct" class="prob-pct"></span>
+        </div>
+        <div class="result-risk">
+          Risk Level: <span id="riskBadge" class="risk-badge"></span>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem" id="modelUsed"></div>
+        <div class="result-reasons">
+          <h4>Why this prediction?</h4>
+          <ul id="reasonsList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prediction History -->
+    <div class="card glass history-panel" style="margin-top:1rem">
+      <div class="table-header">
+        <h3 class="section-title" style="margin:0">Recent Predictions</h3>
+        <button class="btn btn-outline btn-sm" onclick="loadHistory()">🔄 Refresh</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <p style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem">No predictions yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Predict -->
+  <div id="panelBatch" style="display:none">
+    <div class="card glass" style="max-width:600px">
+      <h3 style="margin-bottom:1rem">Batch Prediction via CSV</h3>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+        Upload a CSV with columns: <code>amount, transaction_hour, merchant_category, device_trust_score, velocity_last_24h, cardholder_age, foreign_transaction, location_mismatch</code>
+      </p>
+      <div class="batch-zone" id="batchZone" onclick="document.getElementById('batchFile').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleBatchDrop(event)">
+        <div style="font-size:2.5rem">📦</div>
+        <p>Click or drag & drop your CSV file here</p>
+        <p style="font-size:0.75rem;margin-top:0.25rem">Supports .csv, .xlsx</p>
+      </div>
+      <input type="file" id="batchFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="runBatchPredict(this.files[0])"/>
+      <div id="batchStatus" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)"></div>
+    </div>
+  </div>
+</main>
+
+<div id="toastContainer"></div>
+
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudShield — Alerts</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<nav class="sidebar glass">
+  <div class="sidebar-brand">
+    🛡️ <span class="brand-name">FraudShield</span>
+    <span class="brand-dot"></span>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="/"><span>📊</span><span>Dashboard</span></a></li>
+    <li><a href="/predict_page"><span>🔍</span><span>Predict</span></a></li>
+    <li class="active"><a href="/alerts"><span>🚨</span><span>Alerts</span><span class="nav-badge">{{ alerts|length }}</span></a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ current_user[0]|upper if current_user else 'U' }}</div>
+      <span class="user-name">{{ current_user }}</span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="toggleTheme()">🌓 <span class="btn-text">Theme</span></button>
+    <a href="/logout" class="btn btn-danger btn-sm">⏻ <span class="btn-text">Logout</span></a>
+  </div>
+</nav>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2>🚨 Suspicious Transaction Log</h2>
+      <p>High-risk fraud alerts from predictions</p>
+    </div>
+    <div class="topbar-actions">
+      <span class="badge badge-danger" style="font-size:0.82rem;padding:0.35rem 0.8rem">{{ alerts|length }} Alerts</span>
+      {% if alerts and is_admin %}
+      <button class="btn btn-sm btn-outline" onclick="clearAlerts()">🗑 Clear All</button>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="alerts-toolbar">
+    <div class="alerts-filter">
+      <button class="filter-btn active" onclick="filterAlerts('all', this)">All</button>
+      <button class="filter-btn" onclick="filterAlerts('high', this)">High Risk</button>
+      <button class="filter-btn" onclick="filterAlerts('foreign', this)">Foreign</button>
+      <button class="filter-btn" onclick="filterAlerts('mismatch', this)">Location Mismatch</button>
+    </div>
+    <input type="text" class="search-input" placeholder="🔍 Search alerts..." oninput="searchAlerts(this.value)"/>
+  </div>
+
+  {% if alerts %}
+  <div class="alerts-grid" id="alertsGrid">
+    {% for a in alerts %}
+    <div class="card glass alert-card fraud-highlight"
+         data-foreign="{{ a.get('foreign_transaction', 0) }}"
+         data-mismatch="{{ a.get('location_mismatch', 0) }}">
+      <div class="alert-card-header">
+        <span class="badge badge-danger">HIGH RISK</span>
+        <span class="prob-text">{{ a.probability }}% Fraud Probability</span>
+      </div>
+      {% if a.get('timestamp') %}
+      <div class="alert-timestamp">🕐 {{ a.timestamp[:19].replace('T',' ') }}</div>
+      {% endif %}
+      <div class="alert-details">
+        <div><strong>Amount:</strong> ${{ a.get('amount', 'N/A') }}</div>
+        <div><strong>Hour:</strong> {{ a.get('transaction_hour', 'N/A') }}:00</div>
+        <div><strong>Merchant:</strong> {{ a.get('merchant_category', 'N/A') }}</div>
+        <div><strong>Age:</strong> {{ a.get('cardholder_age', 'N/A') }}</div>
+        <div><strong>Foreign:</strong>
+          {% if a.get('foreign_transaction') == 1 %}
+            <span style="color:var(--accent)">Yes</span>
+          {% else %}No{% endif %}
+        </div>
+        <div><strong>Location Mismatch:</strong>
+          {% if a.get('location_mismatch') == 1 %}
+            <span style="color:var(--accent)">Yes</span>
+          {% else %}No{% endif %}
+        </div>
+        <div><strong>Device Trust:</strong> {{ a.get('device_trust_score', 'N/A') }}</div>
+        <div><strong>Velocity 24h:</strong> {{ a.get('velocity_last_24h', 'N/A') }}</div>
+      </div>
+      <div class="alert-reasons">
+        <strong style="font-size:0.8rem;color:var(--text-muted)">Risk Factors:</strong>
+        <ul>
+          {% for r in a.get('reasons', []) %}
+          <li>{{ r }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if a.get('model_used') %}
+      <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--text-muted)">Model: {{ a.model_used }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card glass empty-state">
+    <div class="empty-icon">✅</div>
+    <p>No high-risk alerts recorded yet.</p>
+    <p style="font-size:0.82rem;margin-top:0.5rem">Run predictions to populate this log.</p>
+  </div>
+  {% endif %}
+</main>
+
+<div id="toastContainer"></div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+
+function filterAlerts(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cards = document.querySelectorAll('.alert-card');
+  cards.forEach(card => {
+    let show = true;
+    if (type === 'foreign') show = card.dataset.foreign === '1';
+    if (type === 'mismatch') show = card.dataset.mismatch === '1';
+    card.style.display = show ? '' : 'none';
+  });
+}
+
+function searchAlerts(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.alert-card').forEach(card => {
+    card.style.display = card.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function showToast(msg, type='info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+async function clearAlerts() {
+  if (!confirm('Clear all alerts? This cannot be undone.')) return;
+  const res = await fetch('/api/alerts/clear', { method: 'POST' });
+  if ((await res.json()).status === 'ok') {
+    showToast('All alerts cleared', 'success');
+    setTimeout(() => location.reload(), 800);
+  }
+}
+</script>
+</body>
+</html>
