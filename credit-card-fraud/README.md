@@ -107,10 +107,3 @@ python train.py
 
 ---
 
-## 🔐 Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `FRAUDSHIELD_SECRET` | `fraud_detection_secret_2024` | Flask session secret |
-| `FRAUDSHIELD_USER` | `admin` | Default admin username |
-| `FRAUDSHIELD_PASS` | `admin123` | Default admin password |
